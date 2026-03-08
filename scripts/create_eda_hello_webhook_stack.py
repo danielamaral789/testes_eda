@@ -186,6 +186,13 @@ def main(argv: list[str]) -> int:
         default="activation-hello-webhook",
         help="Activation name to create/use.",
     )
+    parser.add_argument(
+        "--eda-credential-id",
+        action="append",
+        type=int,
+        default=[],
+        help="EDA credential id to attach to the activation (repeatable). Required for run_job_template and similar actions.",
+    )
     parser.add_argument("--timeout", type=float, default=30.0, help="HTTP timeout seconds.")
     parser.add_argument(
         "--wait",
@@ -365,6 +372,8 @@ def main(argv: list[str]) -> int:
         f"  rulebook_hash: {rulebook_hash}\n"
     )
 
+    eda_credentials = [int(x) for x in (args.eda_credential_id or []) if int(x) > 0]
+
     # Activation
     act_list = _get_json(
         opener,
@@ -374,22 +383,25 @@ def main(argv: list[str]) -> int:
     )
     activation = _first_result(act_list)
     if not activation:
+        create_payload: dict[str, Any] = {
+            "name": args.activation,
+            "description": f"Prints all events from Event Stream {event_stream_name}",
+            "organization_id": organization_id,
+            "decision_environment_id": decision_environment_id,
+            "rulebook_id": rulebook_id,
+            "is_enabled": True,
+            "restart_policy": "always",
+            "log_level": "info",
+            "source_mappings": source_mappings,
+        }
+        if eda_credentials:
+            create_payload["eda_credentials"] = eda_credentials
         status, _, body = _request(
             opener,
             method="POST",
             url=f"{base_url}/api/eda/v1/activations/",
             headers=api_headers,
-            payload={
-                "name": args.activation,
-                "description": f"Prints all events from Event Stream {event_stream_name}",
-                "organization_id": organization_id,
-                "decision_environment_id": decision_environment_id,
-                "rulebook_id": rulebook_id,
-                "is_enabled": True,
-                "restart_policy": "always",
-                "log_level": "info",
-                "source_mappings": source_mappings,
-            },
+            payload=create_payload,
             timeout_s=args.timeout,
         )
         if status < 200 or status >= 400:
@@ -397,17 +409,20 @@ def main(argv: list[str]) -> int:
         activation = _parse_json(body)
     else:
         # Best-effort update if it already exists.
+        patch_payload: dict[str, Any] = {
+            "decision_environment_id": decision_environment_id,
+            "rulebook_id": rulebook_id,
+            "source_mappings": source_mappings,
+            "is_enabled": True,
+        }
+        if eda_credentials:
+            patch_payload["eda_credentials"] = eda_credentials
         _request(
             opener,
             method="PATCH",
             url=f"{base_url}/api/eda/v1/activations/{int(activation['id'])}/",
             headers=api_headers,
-            payload={
-                "decision_environment_id": decision_environment_id,
-                "rulebook_id": rulebook_id,
-                "source_mappings": source_mappings,
-                "is_enabled": True,
-            },
+            payload=patch_payload,
             timeout_s=args.timeout,
         )
 
