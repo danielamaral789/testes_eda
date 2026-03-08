@@ -2,12 +2,6 @@
 - name: Webhook -> Python (EDA local action demo)
   hosts: all
 
-  inventory:
-    all:
-      hosts:
-        localhost:
-          ansible_connection: local
-
   sources:
     - name: lab_webhook
       ansible.eda.pg_listener:
@@ -22,6 +16,11 @@
             pretty: true
         - run_module:
             name: ansible.builtin.command
+            inventory:
+              all:
+                hosts:
+                  localhost:
+                    ansible_connection: local
             module_args:
               cmd: >-
                 python3 scripts/python_action_demo.py
