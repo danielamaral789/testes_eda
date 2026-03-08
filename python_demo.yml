@@ -16,6 +16,7 @@
             pretty: true
         - run_module:
             name: ansible.builtin.command
+            inventory: inventories/localhost.ini
             module_args:
               cmd: >-
                 python3 scripts/python_action_demo.py
