@@ -1,0 +1,31 @@
+---
+- name: Webhook -> Controller Job Template (AAP)
+  hosts: all
+
+  sources:
+    - name: lab_webhook
+      ansible.eda.pg_listener:
+        channels:
+          - lab_webhook
+
+  rules:
+    - name: Dispara Job Template quando severity=high
+      condition: event.payload is mapping and event.payload.payload is mapping and event.payload.payload.severity == "high"
+      action:
+        run_job_template:
+          organization: Default
+          name: Demo - Remediate Host
+          job_args:
+            extra_vars:
+              host: "{{ event.payload.payload.host | default('unknown') }}"
+              severity: "{{ event.payload.payload.severity | default('unknown') }}"
+              message: "{{ event.payload.payload.message | default('') }}"
+              event_id: "{{ event.payload.id | default(event.meta.uuid | default('')) }}"
+              sent_at: "{{ event.payload.sent_at | default('') }}"
+
+    - name: Caso contrário, só loga o evento (debug)
+      condition: event.payload is mapping
+      action:
+        print_event:
+          pretty: true
+

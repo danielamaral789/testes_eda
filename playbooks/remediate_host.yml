@@ -1,0 +1,14 @@
+---
+- name: Demo remediation (placeholder)
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Show vars from EDA
+      ansible.builtin.debug:
+        msg:
+          host: "{{ host | default('') }}"
+          severity: "{{ severity | default('') }}"
+          message: "{{ message | default('') }}"
+          event_id: "{{ event_id | default('') }}"
+          sent_at: "{{ sent_at | default('') }}"
+

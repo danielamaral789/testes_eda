@@ -1,0 +1,15 @@
+{
+  "id": "${uuid}",
+  "sent_at": "${now}",
+  "sequence": "${sequence}",
+  "source": "local-python",
+  "type": "http_test",
+  "payload": {
+    "service": "webhook",
+    "environment": "sandbox",
+    "message": "Hello from testes_eda",
+    "nested": {
+      "trace_id": "${uuid}"
+    }
+  }
+}
