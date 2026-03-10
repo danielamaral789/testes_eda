@@ -38,6 +38,23 @@ Este cenário prova que o laboratório consegue:
 
 ## Como o fluxo funciona
 
+## Forma suportada neste ambiente
+
+No runtime atual do EDA usado neste laboratório, a forma suportada para o cenário Python é:
+
+- `run_module`
+- `name: ansible.builtin.command`
+- inventário local com `localhost` definido no nível do ruleset
+- comando chamando `python3 scripts/python_action_demo.py`
+
+A tentativa com `run_script` não funcionou neste ambiente e gerou o erro:
+
+```text
+Action run_script not supported
+```
+
+Por isso, este documento considera `run_module` como a forma correta e suportada para esse fluxo.
+
 ### Etapa 1. Recebimento do evento
 
 Um payload JSON entra no webhook do `Event Stream`.
@@ -88,6 +105,12 @@ Arquivo: `rulebooks/python_demo.yml`
 - name: Webhook -> Python (EDA local action demo)
   hosts: all
 
+  inventory:
+    all:
+      hosts:
+        localhost:
+          ansible_connection: local
+
   sources:
     - name: lab_webhook
       ansible.eda.pg_listener:
@@ -102,11 +125,6 @@ Arquivo: `rulebooks/python_demo.yml`
             pretty: true
         - run_module:
             name: ansible.builtin.command
-            inventory:
-              all:
-                hosts:
-                  localhost:
-                    ansible_connection: local
             module_args:
               cmd: >-
                 python3 scripts/python_action_demo.py
