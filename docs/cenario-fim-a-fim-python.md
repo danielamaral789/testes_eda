@@ -44,7 +44,7 @@ No runtime atual do EDA usado neste laboratório, a forma suportada para o cená
 
 - `run_module`
 - `name: ansible.builtin.command`
-- inventário local com `localhost` definido no nível do ruleset
+- `hosts: localhost` no ruleset
 - comando chamando `python3 scripts/python_action_demo.py`
 
 A tentativa com `run_script` não funcionou neste ambiente e gerou o erro:
@@ -103,13 +103,7 @@ Arquivo: `rulebooks/python_demo.yml`
 ```yaml
 ---
 - name: Webhook -> Python (EDA local action demo)
-  hosts: all
-
-  inventory:
-    all:
-      hosts:
-        localhost:
-          ansible_connection: local
+  hosts: localhost
 
   sources:
     - name: lab_webhook

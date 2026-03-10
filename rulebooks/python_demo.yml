@@ -1,12 +1,6 @@
 ---
 - name: Webhook -> Python (EDA local action demo)
-  hosts: all
-
-  inventory:
-    all:
-      hosts:
-        localhost:
-          ansible_connection: local
+  hosts: localhost
 
   sources:
     - name: lab_webhook
