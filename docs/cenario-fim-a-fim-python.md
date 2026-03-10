@@ -1,10 +1,10 @@
 # Cenário fim a fim: Webhook -> EDA -> ação Python local
 
-Este documento descreve o cenário em que um evento recebido por webhook é processado no EDA e aciona um script Python local via `run_script`.
+Este documento descreve o cenário em que um evento recebido por webhook é processado no EDA e aciona um script Python local via `run_module`.
 
 O fluxo validado aqui é:
 
-`Evento HTTP` → `Event Stream` → `Activation EDA` → `Rulebook` → `run_script` → `python_action_demo.py`
+`Evento HTTP` → `Event Stream` → `Activation EDA` → `Rulebook` → `run_module` → `python_action_demo.py`
 
 ## Objetivo do cenário
 
@@ -56,7 +56,7 @@ event.payload.payload.severity == "high"
 
 ### Etapa 4. Execução do script local
 
-O EDA chama `scripts/python_action_demo.py` com dados do evento, incluindo:
+O EDA executa `ansible.builtin.command` localmente e chama `scripts/python_action_demo.py` com dados do evento, incluindo:
 
 - `event_id`
 - `host`
@@ -100,25 +100,24 @@ Arquivo: `rulebooks/python_demo.yml`
       actions:
         - print_event:
             pretty: true
-        - run_script:
-            name: scripts/python_action_demo.py
-            args:
-              - --event-id
-              - "{{ event.payload.id | default('') }}"
-              - --host
-              - "{{ event.payload.payload.host | default('') }}"
-              - --severity
-              - "{{ event.payload.payload.severity | default('') }}"
-              - --message
-              - "{{ event.payload.payload.message | default('') }}"
-              - --sent-at
-              - "{{ event.payload.sent_at | default('') }}"
-              - --source
-              - "{{ event.payload.source | default('') }}"
-              - --event-type
-              - "{{ event.payload.type | default('') }}"
-              - --sequence
-              - "{{ event.payload.sequence | default('') }}"
+        - run_module:
+            name: ansible.builtin.command
+            inventory:
+              all:
+                hosts:
+                  localhost:
+                    ansible_connection: local
+            module_args:
+              cmd: >-
+                python3 scripts/python_action_demo.py
+                --event-id "{{ event.payload.id | default('') }}"
+                --host "{{ event.payload.payload.host | default('') }}"
+                --severity "{{ event.payload.payload.severity | default('') }}"
+                --message "{{ event.payload.payload.message | default('') }}"
+                --sent-at "{{ event.payload.sent_at | default('') }}"
+                --source "{{ event.payload.source | default('') }}"
+                --event-type "{{ event.payload.type | default('') }}"
+                --sequence "{{ event.payload.sequence | default('') }}"
 ```
 
 ### Script Python

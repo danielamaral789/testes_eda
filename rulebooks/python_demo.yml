@@ -14,22 +14,21 @@
       actions:
         - print_event:
             pretty: true
-        - run_script:
-            name: scripts/python_action_demo.py
-            args:
-              - --event-id
-              - "{{ event.payload.id | default('') }}"
-              - --host
-              - "{{ event.payload.payload.host | default('') }}"
-              - --severity
-              - "{{ event.payload.payload.severity | default('') }}"
-              - --message
-              - "{{ event.payload.payload.message | default('') }}"
-              - --sent-at
-              - "{{ event.payload.sent_at | default('') }}"
-              - --source
-              - "{{ event.payload.source | default('') }}"
-              - --event-type
-              - "{{ event.payload.type | default('') }}"
-              - --sequence
-              - "{{ event.payload.sequence | default('') }}"
+        - run_module:
+            name: ansible.builtin.command
+            inventory:
+              all:
+                hosts:
+                  localhost:
+                    ansible_connection: local
+            module_args:
+              cmd: >-
+                python3 scripts/python_action_demo.py
+                --event-id "{{ event.payload.id | default('') }}"
+                --host "{{ event.payload.payload.host | default('') }}"
+                --severity "{{ event.payload.payload.severity | default('') }}"
+                --message "{{ event.payload.payload.message | default('') }}"
+                --sent-at "{{ event.payload.sent_at | default('') }}"
+                --source "{{ event.payload.source | default('') }}"
+                --event-type "{{ event.payload.type | default('') }}"
+                --sequence "{{ event.payload.sequence | default('') }}"
