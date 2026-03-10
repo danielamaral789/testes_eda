@@ -30,7 +30,7 @@ O workspace cobre quatro frentes principais:
 
 3. **Execução das automações**
    - processa eventos em rulebooks;
-   - executa `run_script` local ou `run_job_template` no Controller.
+   - executa `run_module` local para o fluxo Python ou `run_job_template` no Controller.
 
 4. **Operação e troubleshooting**
    - reinicia activation, sincroniza projeto, valida jobs, diagnostica webhook;
@@ -52,7 +52,7 @@ O workspace cobre quatro frentes principais:
 - `rulebooks/jobtemplate_demo.yml`
   - recebe eventos do canal `lab_webhook` e chama o Job Template `Demo - Remediate Host`.
 - `rulebooks/python_demo.yml`
-  - recebe eventos do mesmo canal e executa `scripts/python_action_demo.py`.
+  - recebe eventos do mesmo canal e executa `scripts/python_action_demo.py` via `run_module`.
 - `jobtemplate_demo.yml`
   - cópia do rulebook de Job Template na raiz.
 - `python_demo.yml`
@@ -197,7 +197,7 @@ Use `scripts/create_eda_hello_webhook_stack.py` para:
 Há dois fluxos prontos:
 
 - `rulebooks/python_demo.yml`
-  - quando `severity == "high"`, executa `scripts/python_action_demo.py`;
+  - quando `severity == "high"`, executa `scripts/python_action_demo.py` via `ansible.builtin.command`;
 - `rulebooks/jobtemplate_demo.yml`
   - quando `severity == "high"`, chama o Job Template `Demo - Remediate Host` no Controller.
 
@@ -229,7 +229,7 @@ O ciclo interno é:
 ### 7. Executar a ação
 
 - No fluxo Python:
-  - o EDA executa `scripts/python_action_demo.py`.
+  - o EDA executa `ansible.builtin.command`, que chama `scripts/python_action_demo.py`.
 
 - No fluxo Controller:
   - o EDA chama o Job Template no Controller;
@@ -261,7 +261,21 @@ Use:
 
 ## Fluxo fim a fim em uma linha
 
-`send_webhook_events.py` → `Event Stream` → `Activation` → `Rulebook` → `run_script` ou `run_job_template` → `logs / job do Controller`
+`send_webhook_events.py` → `Event Stream` → `Activation` → `Rulebook` → `run_module` ou `run_job_template` → `logs / job do Controller`
+
+### Forma suportada no fluxo Python
+
+Neste ambiente do EDA, a forma suportada para executar a ação Python é:
+
+- `run_module` com `name: ansible.builtin.command`
+- execução local usando inventário com `localhost`
+- chamada explícita de `python3 scripts/python_action_demo.py`
+
+A tentativa anterior com `run_script` não funcionou neste runtime e falhou com:
+
+```text
+Action run_script not supported
+```
 
 ## Comandos mais úteis
 
