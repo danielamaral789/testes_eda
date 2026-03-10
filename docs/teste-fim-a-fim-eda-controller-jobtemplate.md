@@ -1,39 +1,101 @@
-# Teste fim-a-fim: Webhook (Event Stream) → EDA Rulebook → Job Template (Controller)
+# Cenário fim a fim: Webhook -> EDA -> Job Template no Controller
 
-Data do teste: **2026-03-08**
+Este documento descreve o cenário completo de integração entre:
 
-Este documento descreve o teste completo que fizemos no lab para validar:
+- um **webhook** exposto por um `Event Stream`;
+- um **rulebook** executado por uma `Activation` no EDA;
+- um **Job Template** executado no **Automation Controller (AAP)**.
 
-1) recebimento de eventos via **Event Stream** (webhook) no EDA  
-2) execução de um **rulebook** no EDA (Activation)  
-3) disparo de um **Job Template** no **Automation Controller** (AAP) *a partir do EDA* (action `run_job_template`)
+O objetivo é validar o fluxo:
 
-## Visão geral do fluxo
+`Evento HTTP` → `Event Stream` → `Activation EDA` → `Rulebook` → `run_job_template` → `Controller Job`
 
-1. Um evento JSON é enviado para a URL do webhook do Event Stream `lab-webhook`.
-2. O EDA entrega esse evento para o rulebook (`jobtemplate_demo.yml`) via `ansible.eda.pg_listener` (source `lab_webhook`).
-3. Se `severity == "high"`, o rulebook chama o Job Template `Demo - Remediate Host` no Controller.
-4. O Controller executa o playbook `playbooks/remediate_host.yml` (neste repo) e o job finaliza com `successful`.
+## Objetivo do cenário
 
-## Componentes criados/usados
+Este cenário prova que o laboratório consegue:
+
+1. receber um evento JSON via webhook;
+2. entregar o evento ao EDA por meio de um `Event Stream`;
+3. avaliar o evento em um rulebook;
+4. disparar um `Job Template` no Controller;
+5. passar dados do evento para o playbook via `extra_vars`.
+
+## Componentes envolvidos
 
 ### EDA
-- **Event Stream**: `lab-webhook` (webhook + token)
-- **EDA Credential (AAP)**: `aap-local-controller` (Credential Type: `Red Hat Ansible Automation Platform`)
-- **Project (EDA)**: `testes-eda-project` (Git URL do repo `testes_eda`)
-- **Rulebook**: `jobtemplate_demo.yml`
-- **Activation**: `activation-jobtemplate-demo` (mapeando Event Stream `lab-webhook` → source `lab_webhook`)
 
-### Controller (AAP)
-- **Project**: `controller-testes-eda-project` (Git URL do repo `testes_eda`)
-- **Inventory**: `eda-demo-inventory` com host `localhost` e variável `ansible_connection: local`
-- **Job Template**: `Demo - Remediate Host` (playbook `playbooks/remediate_host.yml`, `ask_variables_on_launch=true`)
+- `Event Stream`: `lab-webhook`
+  - endpoint HTTP que recebe o evento de entrada.
+- `EDA Credential (AAP)`: `aap-local-controller`
+  - credencial usada pelo EDA para se autenticar no Controller.
+- `Project`: `testes-eda-project`
+  - projeto Git usado pelo EDA para importar os rulebooks deste repositório.
+- `Rulebook`: `jobtemplate_demo.yml`
+  - regra que decide quando chamar o Controller.
+- `Activation`: `activation-jobtemplate-demo`
+  - processo que executa o rulebook e vincula o `Event Stream` ao source do rulebook.
 
-## Trechos de código (os que fazem o teste acontecer)
+### Controller
 
-### Rulebook (EDA): `jobtemplate_demo.yml`
+- `Project`: `controller-testes-eda-project`
+  - projeto Git usado pelo Controller para importar os playbooks deste repositório.
+- `Inventory`: `eda-demo-inventory`
+  - inventário do demo.
+- `Host`: `localhost`
+  - host local usado para execução do playbook.
+- `Job Template`: `Demo - Remediate Host`
+  - job disparado pelo EDA.
 
-> O EDA carrega este arquivo pelo Project (Git) e cria o source `lab_webhook`, que é mapeado ao Event Stream `lab-webhook`.
+### Arquivos do repositório usados no cenário
+
+- `rulebooks/jobtemplate_demo.yml`
+  - rulebook que escuta o evento e chama o Controller.
+- `playbooks/remediate_host.yml`
+  - playbook executado pelo Job Template.
+- `scripts/create_controller_job_template_demo.py`
+  - provisiona o lado Controller.
+- `scripts/create_eda_aap_controller_credential.py`
+  - cria a credencial AAP no EDA.
+- `scripts/create_eda_hello_webhook_stack.py`
+  - provisiona o lado EDA.
+- `scripts/send_webhook_events.py`
+  - envia o evento de teste.
+- `scripts/check_controller_latest_job.py`
+  - valida o último job disparado no Controller.
+
+## Como o fluxo funciona
+
+### Etapa 1. Recebimento do evento
+
+Um payload JSON é enviado para a URL do webhook do `Event Stream` `lab-webhook`.
+
+### Etapa 2. Entrada no EDA
+
+O `Event Stream` entrega o evento para a `Activation`, que o repassa ao source `lab_webhook` definido no rulebook.
+
+### Etapa 3. Avaliação da regra
+
+O rulebook avalia a condição:
+
+```yaml
+event.payload.payload.severity == "high"
+```
+
+Se a condição for verdadeira, a action `run_job_template` é executada.
+
+### Etapa 4. Chamada ao Controller
+
+O EDA usa a credencial AAP anexada à `Activation` para autenticar no Controller e disparar o Job Template `Demo - Remediate Host`.
+
+### Etapa 5. Execução do playbook
+
+O Controller executa o playbook `playbooks/remediate_host.yml`, recebendo informações do evento em `extra_vars`.
+
+## Trechos principais
+
+### Rulebook do EDA
+
+Arquivo: `rulebooks/jobtemplate_demo.yml`
 
 ```yaml
 ---
@@ -64,9 +126,9 @@ Este documento descreve o teste completo que fizemos no lab para validar:
                 sent_at: "{{ event.payload.sent_at | default('') }}"
 ```
 
-### Playbook (Controller): `playbooks/remediate_host.yml`
+### Playbook do Controller
 
-> O Job Template executa este playbook; aqui ele só imprime as variáveis vindas do evento (demo).
+Arquivo: `playbooks/remediate_host.yml`
 
 ```yaml
 ---
@@ -84,20 +146,23 @@ Este documento descreve o teste completo que fizemos no lab para validar:
           sent_at: "{{ sent_at | default('') }}"
 ```
 
-## Passo a passo (reprodutível)
+## Passo a passo reprodutível
 
-### 1) Criar o Job Template no Controller
-
-Cria/ajusta Project + Inventory(localhost) + Job Template no Controller:
+### 1. Criar o Job Template no Controller
 
 ```bash
 export EDA_BASE_URL='https://sandbox-aap-danielamaral789-dev.apps.rm1.0a51.p1.openshiftapps.com'
 python3 scripts/create_controller_job_template_demo.py --base-url "$EDA_BASE_URL"
 ```
 
-### 2) Criar a credencial AAP no EDA (requisito do `run_job_template`)
+Esse comando cria ou ajusta:
 
-Sem isso, a Activation falha com `The rulebook requires a RH AAP credential.`.
+- `Project` no Controller;
+- `Inventory`;
+- host `localhost`;
+- `Job Template` `Demo - Remediate Host`.
+
+### 2. Criar a credencial AAP no EDA
 
 ```bash
 export EDA_BASE_URL='https://sandbox-aap-danielamaral789-dev.apps.rm1.0a51.p1.openshiftapps.com'
@@ -107,7 +172,9 @@ python3 scripts/create_eda_aap_controller_credential.py \
   --host "$EDA_BASE_URL/api/controller/"
 ```
 
-### 3) Criar Project + Activation no EDA (usando este repo)
+Sem essa credencial, a `Activation` não consegue executar `run_job_template`.
+
+### 3. Criar Project + Activation no EDA
 
 ```bash
 export EDA_BASE_URL='https://sandbox-aap-danielamaral789-dev.apps.rm1.0a51.p1.openshiftapps.com'
@@ -124,11 +191,11 @@ python3 scripts/create_eda_hello_webhook_stack.py \
   --eda-credential-id <EDA_CRED_ID>
 ```
 
-> Observação: substitua `<EDA_CRED_ID>` pelo id retornado na criação da credencial `aap-local-controller`.
+Substitua `<EDA_CRED_ID>` pelo id retornado na criação da credencial `aap-local-controller`.
 
-### 4) Enviar evento “high” (dispara o Job Template)
+### 4. Enviar um evento de teste
 
-Exemplo de payload:
+Payload de exemplo:
 
 ```json
 {
@@ -145,7 +212,7 @@ Exemplo de payload:
 }
 ```
 
-Envio via script (com token do Event Stream no header `Authorization`):
+Envio do evento:
 
 ```bash
 export EDA_WEBHOOK_URL='https://<...>/eda-event-streams/api/eda/v1/external_event_stream/<uuid>/post/'
@@ -158,26 +225,88 @@ python3 scripts/send_webhook_events.py \
   --data '<JSON_ACIMA>'
 ```
 
-## Como validar que funcionou
+## Como validar
 
 ### Validação no EDA
-- UI: **Rulebook Activations** → `activation-jobtemplate-demo` → **History** → instância → **Logs**
-- Esperado: logs com `Attempting to connect to Controller ...` e, após evento, execução da action `run_job_template`.
+
+Verifique os logs da `Activation`:
+
+- UI: `Rulebook Activations` → `activation-jobtemplate-demo` → `History` → instância → `Logs`
+- esperado:
+  - recebimento do evento;
+  - execução da action `run_job_template`;
+  - tentativa de conexão com o Controller.
 
 ### Validação no Controller
-Checar o último job do Job Template:
+
+Use:
 
 ```bash
 export EDA_BASE_URL='https://sandbox-aap-danielamaral789-dev.apps.rm1.0a51.p1.openshiftapps.com'
 python3 scripts/check_controller_latest_job.py --base-url "$EDA_BASE_URL" --job-template-id 9
 ```
 
-Esperado: status `successful`.
+Esperado:
 
-## Troubleshooting (os problemas reais que apareceram no lab)
+- o último job aparece associado ao `Job Template`;
+- o status final é `successful`.
 
-- **Activation 400**: `"The rulebook requires a RH AAP credential."`  
-  Solução: anexar a credencial AAP no campo `eda_credentials` da Activation (API/UI).
+## Problemas mais comuns
 
-- **Crash no Drools (NullPointerException)** ao usar `is mapping` em condição  
-  Solução: usar uma condição simples e direta (no nosso caso, `event.payload.payload.severity == "high"`).
+### Activation 400 ao criar ou atualizar
+
+Erro típico:
+
+```text
+The rulebook requires a RH AAP credential.
+```
+
+Causa:
+
+- a `Activation` foi criada sem a credencial AAP necessária para `run_job_template`.
+
+Solução:
+
+- criar a credencial com `scripts/create_eda_aap_controller_credential.py`;
+- anexar o id da credencial usando `--eda-credential-id` no provisionamento da `Activation`.
+
+### Condição do rulebook quebrando no motor de regras
+
+Problema observado:
+
+- certas expressões mais complexas podem causar falhas no motor Drools.
+
+Solução adotada no lab:
+
+- usar uma condição simples e direta:
+
+```yaml
+event.payload.payload.severity == "high"
+```
+
+### Job não recebe variáveis
+
+Causa comum:
+
+- o `Job Template` do Controller não aceita variáveis no lançamento.
+
+Solução:
+
+- garantir `ask_variables_on_launch=true` no template.
+
+## Resultado esperado do cenário
+
+Ao final do fluxo:
+
+- o webhook recebe o evento com sucesso;
+- o EDA processa o payload;
+- o rulebook identifica `severity == "high"`;
+- o Controller recebe o disparo do `Job Template`;
+- o playbook executa usando os dados do evento.
+
+## Relação com o restante do projeto
+
+Este documento complementa o `README.md`:
+
+- o `README.md` explica o projeto como um todo;
+- este documento detalha apenas o cenário específico `EDA -> Controller`.
