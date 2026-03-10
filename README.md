@@ -42,6 +42,8 @@ O workspace cobre quatro frentes principais:
 
 - `README.md`
   - visão geral do laboratório, estrutura, fluxo e comandos principais.
+- `docs/cenario-fim-a-fim-python.md`
+  - roteiro do cenário `webhook -> EDA -> ação Python local`.
 - `docs/teste-fim-a-fim-eda-controller-jobtemplate.md`
   - roteiro do teste completo `webhook -> EDA -> Controller`, com validação e troubleshooting.
 
@@ -106,7 +108,7 @@ O workspace cobre quatro frentes principais:
 - `scripts/get_eda_credential_type.py`
   - consulta um tipo de credencial EDA por id.
 - `scripts/python_action_demo.py`
-  - ação Python simples acionada pelo rulebook `python_demo`.
+  - ação Python acionada pelo rulebook `python_demo`, com enriquecimento e auditoria opcional.
 
 ## Árvore visual do projeto
 
@@ -115,6 +117,8 @@ testes_eda/
 ├── README.md
 │   └── Guia principal do laboratório e do fluxo operacional.
 ├── docs/
+│   ├── cenario-fim-a-fim-python.md
+│   │   └── Passo a passo do cenário EDA -> Python local.
 │   └── teste-fim-a-fim-eda-controller-jobtemplate.md
 │       └── Passo a passo do cenário EDA -> Controller.
 ├── events/

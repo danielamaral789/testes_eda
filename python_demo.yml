@@ -27,3 +27,9 @@
               - "{{ event.payload.payload.message | default('') }}"
               - --sent-at
               - "{{ event.payload.sent_at | default('') }}"
+              - --source
+              - "{{ event.payload.source | default('') }}"
+              - --event-type
+              - "{{ event.payload.type | default('') }}"
+              - --sequence
+              - "{{ event.payload.sequence | default('') }}"
