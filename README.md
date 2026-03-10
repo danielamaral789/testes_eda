@@ -9,7 +9,7 @@ Este repositório não é uma aplicação de produção. Ele funciona como um **
 - provisionar componentes do EDA via API;
 - criar e testar um webhook de entrada baseado em **Event Stream**;
 - enviar eventos sintéticos para validar regras e ações;
-- executar ações locais no EDA ou disparar **Job Templates** no Controller;
+- disparar **Job Templates** no Controller a partir de eventos recebidos no EDA;
 - medir capacidade, latência e degradação do endpoint sob carga.
 
 Em termos práticos, o fluxo principal é:
@@ -30,7 +30,7 @@ O workspace cobre quatro frentes principais:
 
 3. **Execução das automações**
    - processa eventos em rulebooks;
-   - executa `run_module` local para o fluxo Python ou `run_job_template` no Controller.
+   - executa `run_job_template` no Controller.
 
 4. **Operação e troubleshooting**
    - reinicia activation, sincroniza projeto, valida jobs, diagnostica webhook;
@@ -42,8 +42,6 @@ O workspace cobre quatro frentes principais:
 
 - `README.md`
   - visão geral do laboratório, estrutura, fluxo e comandos principais.
-- `docs/cenario-fim-a-fim-python.md`
-  - roteiro do cenário `webhook -> EDA -> ação Python local`.
 - `docs/teste-fim-a-fim-eda-controller-jobtemplate.md`
   - roteiro do teste completo `webhook -> EDA -> Controller`, com validação e troubleshooting.
 
@@ -51,12 +49,8 @@ O workspace cobre quatro frentes principais:
 
 - `rulebooks/jobtemplate_demo.yml`
   - recebe eventos do canal `lab_webhook` e chama o Job Template `Demo - Remediate Host`.
-- `rulebooks/python_demo.yml`
-  - recebe eventos do mesmo canal e executa `scripts/python_action_demo.py` via `run_module`.
 - `jobtemplate_demo.yml`
   - cópia do rulebook de Job Template na raiz.
-- `python_demo.yml`
-  - cópia do rulebook Python na raiz.
 
 ### Playbooks e inventário
 
@@ -107,8 +101,6 @@ O workspace cobre quatro frentes principais:
   - inspeciona schemas reais da API EDA via `OPTIONS`.
 - `scripts/get_eda_credential_type.py`
   - consulta um tipo de credencial EDA por id.
-- `scripts/python_action_demo.py`
-  - ação Python acionada pelo rulebook `python_demo`, com enriquecimento e auditoria opcional.
 
 ## Árvore visual do projeto
 
@@ -117,8 +109,6 @@ testes_eda/
 ├── README.md
 │   └── Guia principal do laboratório e do fluxo operacional.
 ├── docs/
-│   ├── cenario-fim-a-fim-python.md
-│   │   └── Passo a passo do cenário EDA -> Python local.
 │   └── teste-fim-a-fim-eda-controller-jobtemplate.md
 │       └── Passo a passo do cenário EDA -> Controller.
 ├── events/
@@ -131,14 +121,10 @@ testes_eda/
 │   └── remediate_host.yml
 │       └── Playbook demo que recebe variáveis do evento.
 ├── rulebooks/
-│   ├── jobtemplate_demo.yml
-│   │   └── Rulebook que chama Job Template no Controller.
-│   └── python_demo.yml
-│       └── Rulebook que executa script Python local.
+│   └── jobtemplate_demo.yml
+│       └── Rulebook que chama Job Template no Controller.
 ├── jobtemplate_demo.yml
 │   └── Cópia do rulebook de Job Template na raiz.
-├── python_demo.yml
-│   └── Cópia do rulebook Python na raiz.
 └── scripts/
     ├── check_controller_latest_job.py
     │   └── Consulta e acompanha o último job do Controller.
@@ -160,8 +146,6 @@ testes_eda/
     │   └── Descobre schemas reais da API EDA.
     ├── load_test_webhook.py
     │   └── Executa carga no webhook e gera relatório.
-    ├── python_action_demo.py
-    │   └── Script local acionado por rulebook.
     ├── send_webhook_events.py
     │   └── Envia eventos sintéticos para o webhook.
     ├── sync_eda_project.py
@@ -196,8 +180,6 @@ Use `scripts/create_eda_hello_webhook_stack.py` para:
 
 Há dois fluxos prontos:
 
-- `rulebooks/python_demo.yml`
-  - quando `severity == "high"`, executa `scripts/python_action_demo.py` via `ansible.builtin.command`;
 - `rulebooks/jobtemplate_demo.yml`
   - quando `severity == "high"`, chama o Job Template `Demo - Remediate Host` no Controller.
 
@@ -227,9 +209,6 @@ O ciclo interno é:
 5. a ação configurada é executada.
 
 ### 7. Executar a ação
-
-- No fluxo Python:
-  - o EDA executa `ansible.builtin.command`, que chama `scripts/python_action_demo.py`.
 
 - No fluxo Controller:
   - o EDA chama o Job Template no Controller;
@@ -261,21 +240,7 @@ Use:
 
 ## Fluxo fim a fim em uma linha
 
-`send_webhook_events.py` → `Event Stream` → `Activation` → `Rulebook` → `run_module` ou `run_job_template` → `logs / job do Controller`
-
-### Forma suportada no fluxo Python
-
-Neste ambiente do EDA, a forma suportada para executar a ação Python é:
-
-- `run_module` com `name: ansible.builtin.command`
-- execução local usando inventário com `localhost`
-- chamada explícita de `python3 scripts/python_action_demo.py`
-
-A tentativa anterior com `run_script` não funcionou neste runtime e falhou com:
-
-```text
-Action run_script not supported
-```
+`send_webhook_events.py` → `Event Stream` → `Activation` → `Rulebook` → `run_job_template` → `logs / job do Controller`
 
 ## Comandos mais úteis
 
